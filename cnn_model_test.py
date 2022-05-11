@@ -43,8 +43,8 @@ def queryComment(comment):
     words = get_segment_words([comment], stopwords)
     review_ids = tokenizer.texts_to_sequences(words)
     review_ids = preprocessing.sequence.pad_sequences(review_ids, max_len)
-    label = model.predict_classes(review_ids)
-    return label[0]
+    logits = model.predict(review_ids)
+    return logits
     # if label[0] == 1:
     #     polarity = '积极'
     # else:

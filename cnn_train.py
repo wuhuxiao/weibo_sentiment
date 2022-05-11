@@ -14,17 +14,18 @@ from sklearn.metrics import classification_report
 
 
 class Logger(object):
-    def __init__(self, logFile="Default.log"):
+    def __init__(self, logFile="Default.log", emit=None):
         self.terminal = sys.stdout
+        self.emit = emit
         self.log = open(logFile, 'a', encoding='utf-8')
 
     def write(self, message):
         self.terminal.write(message)
         self.log.write(message)
+        self.emit('train cnn', {'data': message}, broadcast=True,namespace='/test')
 
     def flush(self):
         pass
-
 
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '/gpu:1'
@@ -119,9 +120,13 @@ def print_history(history):
     plt.show()
 
 
-def trainModel(max_len, word_vector_type, embedding_size, batch_size, epochs):
+
+def trainModel(max_len=128, word_vector_type='word2vec', embedding_size=300, batch_size=32, epochs=5,socketio = None):
     # 数据预处理
+    emit = socketio.emit
+    sys.stdout = Logger("./log/web_train.txt", emit)
     print('读取数据集')
+    emit('train cnn', {'data': '读取数据集'}, broadcast=True,namespace='/test')
     train_data = pd.read_csv(os.path.join(path, './train.csv'))
     dev_data = pd.read_csv(os.path.join(path, './dev.csv'))
     test_data = pd.read_csv(os.path.join(path, './test.csv'))
@@ -138,22 +143,27 @@ def trainModel(max_len, word_vector_type, embedding_size, batch_size, epochs):
     sentences.extend(x_test)
     # 根据分词结果 生词vocab 统计词频以及对词进行编号 词频越大，编号越小
     print('根据分词样本生成vocab')
+    emit('train cnn', {'data': '根据分词样本生成vocab'}, broadcast=True,namespace='/test')
     tokenizer = preprocessing.text.Tokenizer()
     tokenizer.fit_on_texts(sentences)
     vocab = tokenizer.word_index
     # 根据vocab，将数据集中的每个样本中的分词序列转化为编号序列
     print('分词序列编号化')
+    emit('train cnn', {'data': '分词序列编号化'}, broadcast=True,namespace='/test')
     x_train = tokenizer.texts_to_sequences(x_train)
     x_dev = tokenizer.texts_to_sequences(x_dev)
     x_test = tokenizer.texts_to_sequences(x_test)
     # 每条样本长度不一，将每条样本的长度设置为一个固定值 将超过固定值的部分截掉，不足的在最前面用0填充
     print('padding sequence')
+    emit('train cnn', {'data': 'padding sequence'}, broadcast=True,namespace='/test')
     # 知道样本中的所有词在vocab中的位置信息，以及位置所对应的词向量矩阵，就可以实现Embedding
     x_train = preprocessing.sequence.pad_sequences(x_train, maxlen=max_len)
     x_dev = preprocessing.sequence.pad_sequences(x_dev, maxlen=max_len)
     x_test = preprocessing.sequence.pad_sequences(x_test, maxlen=max_len)
     # 加载词向量
     print('加载词向量...')
+    emit('train cnn', {'data': '加载词向量...'}, broadcast=True,namespace='/test')
+
     # wv=KeyedVectors.load_word2vec_format('/home/ydwang/word_vector/news_12g_baidubaike_20g_novel_90g_embedding_64.bin',binary=True)
     if word_vector_type == 'word2vec':
         wv = KeyedVectors.load_word2vec_format('./word2vec/weibo_zh_word2vec_format_' + str(embedding_size) + '.txt',
@@ -164,6 +174,8 @@ def trainModel(max_len, word_vector_type, embedding_size, batch_size, epochs):
     # 词向量的嵌入矩阵的行数为什么是len(vocab)+1呢？
     # 因为vocab词典中词的最小编号是从1开始的，为了保证vocab与嵌入矩阵的索引统一，所以做个加1操作
     print('构建嵌入矩阵')
+    emit('train cnn', {'data': '构建嵌入矩阵'}, broadcast=True,namespace='/test')
+
     embedding_matrix = np.zeros((len(vocab) + 1, embedding_size))
     for word, i in vocab.items():
         try:
@@ -172,10 +184,12 @@ def trainModel(max_len, word_vector_type, embedding_size, batch_size, epochs):
             continue
     # 初始化网络模型
     print('初始化网络模型')
+    emit('train cnn', {'data': '初始化网络模型'}, broadcast=True,namespace='/test')
     model = CNN_model(max_len, len(vocab) + 1, embedding_size, embedding_matrix)
     metrics = keras.metrics
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
     print('Train...')
+    emit('train cnn', {'data': 'Train...'}, broadcast=True,namespace='/test')
     # tensorbord
     # tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir="log/", histogram_freq=1)
 
@@ -196,17 +210,21 @@ def trainModel(max_len, word_vector_type, embedding_size, batch_size, epochs):
     report = classification_report(y_test, y_predict, digits=4)
     result = str(report)
     print(result)
+    emit('train cnn', {'data': result})
+
     with open(output_path + 'train_cnn_result_' + word_vector_type + '_' + str(embedding_size) + '.txt', 'w',
               encoding='utf-8') as f:
         f.write(result)
     # 保存网络模型
     model.save(output_path + 'weibo_cnn_model_' + word_vector_type + '_' + str(embedding_size) + '.h5')
     print('模型保存成功')
+    emit('train cnn', {'data': '模型保存成功'}, broadcast=True,namespace='/test')
+
     return 1
 
 
 if __name__ == '__main__':
-    sys.stdout = Logger("./log/cnn_train.txt")
+    # sys.stdout = Logger("./log/cnn_train.txt")
 
     # 超参
     max_len = 128
