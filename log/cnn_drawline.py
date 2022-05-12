@@ -2,7 +2,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyecharts.options as opts
 from pyecharts.charts import Line
-with open('./log/cnn_train.txt', encoding='utf-8') as f:
+bath_dir = '.'
+# bath_dir = './log'
+with open(bath_dir + '/cnn_train.txt', encoding='utf-8') as f:
     lines = f.readlines()
 start = 10
 epoch1_str = lines[10:start + 3000]
@@ -37,7 +39,7 @@ plt.xlabel('Steps')
 plt.legend([ 'Train_loss','Train_acc'])
 plt.show()
 
-with open('./log/cnn_train_history.txt', encoding='utf-8') as f:
+with open(bath_dir + '/cnn_train_history.txt', encoding='utf-8') as f:
     lines = f.readlines()
 history = eval(lines[0])
 
